@@ -64,6 +64,8 @@ namespace UnityEditor.UI
                 if (EditorGUI.EndChangeCheck() && m_WholeNumbers.boolValue ? Mathf.Round(newMin) < m_MaxValue.floatValue : newMin < m_MaxValue.floatValue)
                 {
                     m_MinValue.floatValue = newMin;
+                    if (m_Value.floatValue < newMin)
+                        m_Value.floatValue = newMin;
                 }
 
                 EditorGUI.BeginChangeCheck();
@@ -71,6 +73,8 @@ namespace UnityEditor.UI
                 if (EditorGUI.EndChangeCheck() && m_WholeNumbers.boolValue ? Mathf.Round(newMax) > m_MinValue.floatValue : newMax > m_MinValue.floatValue)
                 {
                     m_MaxValue.floatValue = newMax;
+                    if (m_Value.floatValue > newMax)
+                        m_Value.floatValue = newMax;
                 }
 
                 EditorGUILayout.PropertyField(m_WholeNumbers);
@@ -79,6 +83,9 @@ namespace UnityEditor.UI
 
                 if (areMinMaxEqual)
                     EditorGUILayout.HelpBox("Min Value and Max Value cannot be equal.", MessageType.Warning);
+
+                if (m_WholeNumbers.boolValue)
+                    m_Value.floatValue = Mathf.Round(m_Value.floatValue);
 
                 EditorGUI.BeginDisabledGroup(areMinMaxEqual);
                 EditorGUILayout.Slider(m_Value, m_MinValue.floatValue, m_MaxValue.floatValue);

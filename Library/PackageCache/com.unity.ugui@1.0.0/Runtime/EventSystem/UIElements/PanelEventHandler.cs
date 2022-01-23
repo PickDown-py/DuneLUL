@@ -2,6 +2,8 @@ using UnityEngine.EventSystems;
 
 namespace UnityEngine.UIElements
 {
+    // This code is disabled unless the UI Toolkit package or the com.unity.modules.uielements module are present.
+    // The UIElements module is always present in the Editor but it can be stripped from a project build if unused.
 #if PACKAGE_UITOOLKIT
     /// <summary>
     /// Use this class to handle input and send events to UI Toolkit runtime panels.
@@ -9,7 +11,7 @@ namespace UnityEngine.UIElements
     [AddComponentMenu("UI Toolkit/Panel Event Handler (UI Toolkit)")]
     public class PanelEventHandler : UIBehaviour, IPointerMoveHandler, IPointerUpHandler, IPointerDownHandler,
         ISubmitHandler, ICancelHandler, IMoveHandler, IScrollHandler, ISelectHandler, IDeselectHandler,
-        IRuntimePanelComponent
+        IPointerExitHandler, IRuntimePanelComponent
     {
         private BaseRuntimePanel m_Panel;
 
@@ -140,6 +142,26 @@ namespace UnityEngine.UIElements
             using (var e = PointerDownEvent.GetPooled(m_PointerEvent))
             {
                 SendEvent(e, eventData);
+            }
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            if (m_Panel == null || !ReadPointerData(m_PointerEvent, eventData, false))
+                return;
+
+            // If a pointer exit is called while the pointer is still on top of this object, it means
+            // there's something else removing the pointer, so we might need to send a PointerCancelEvent.
+            // This is necessary for touch pointers that are being released, because in UGUI the object
+            // that was last hovered will not always be the one receiving the pointer up.
+            if (eventData.pointerCurrentRaycast.gameObject == gameObject &&
+                eventData.pointerPressRaycast.gameObject != gameObject &&
+                m_PointerEvent.pointerId != PointerId.mousePointerId)
+            {
+                using (var e = PointerCancelEvent.GetPooled(m_PointerEvent))
+                {
+                    SendEvent(e, eventData);
+                }
             }
         }
 
@@ -320,8 +342,9 @@ namespace UnityEngine.UIElements
 
             pe.Read(this, eventData, isMove);
 
-            if (!m_Panel.ScreenToPanel(pe.position, pe.deltaPosition, out var panelPosition, out var panelDelta))
-                return false;
+            // PointerEvents making it this far have been validated by PanelRaycaster already
+            m_Panel.ScreenToPanel(pe.position, pe.deltaPosition,
+                out var panelPosition, out var panelDelta, allowOutside:true);
 
             pe.SetPosition(panelPosition, panelDelta);
             return true;
@@ -344,6 +367,8 @@ namespace UnityEngine.UIElements
             public float altitudeAngle { get; private set; }
             public float azimuthAngle { get; private set; }
             public float twist { get; private set; }
+            public Vector2 tilt { get; private set; }
+            public PenStatus penStatus { get; private set; }
             public Vector2 radius { get; private set; }
             public Vector2 radiusVariance { get; private set; }
             public EventModifiers modifiers { get; private set; }
@@ -408,6 +433,8 @@ namespace UnityEngine.UIElements
                 altitudeAngle = eventData.altitudeAngle;
                 azimuthAngle = eventData.azimuthAngle;
                 twist = eventData.twist;
+                tilt = eventData.tilt;
+                penStatus = eventData.penStatus;
                 radius = eventData.radius;
                 radiusVariance = eventData.radiusVariance;
 
